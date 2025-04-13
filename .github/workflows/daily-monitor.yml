@@ -2,32 +2,65 @@ name: OKX Equity Monitor
 
 on:
   schedule:
-    - cron: "*/15 * * * *"  # 每15分钟运行一次（UTC时间）
+ the correct path to the `requirements.txt` file.
+
+Here is the fixed workflow:
+
+```yaml
+name: OKX Equity Monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"  # Runs every 15 minutes (UTC)
   workflow_dispatch:
 
 jobs:
   monitor:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.    - cron: "*/15 * * * *"  # 每15分钟运行一次（UTC时间）
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-04
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses22.04
+
+    steps:
+    - name: Checkout repository
+     : actions/checkout@v3
 
     - name: Set up Python
+      uses: actions/checkout@v3
+
+    - name: Set up Python uses: actions/setup-python@v4
+      with:
+        python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+       -version: '3.11'
+
+    - name: Install dependencies
+      python-version: '3.11'
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        pip install -r okx-monitor/requirements.txt
+
+    - name: Run the monitor script
+      env:
+        OKX_API_KEY: ${{ secrets.OKX run: |
+        pip install -r okx-monitor/requirements.txt
 
     - name: Run the monitor script
       env:
         OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
-        OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
-        OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
-        WECHAT_WEBHOOK: ${{ secrets.WECHAT_WEBHOOK }}
+       _API_KEY }}
+        OKX_SECRET_KEY: ${{ secrets.OK OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
+        OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRAX_SECRET_KEY }}
+        OKX_PASSPHRASE: ${{ secrets.OKSE }}
+        WECHAT_WEBHOOK: ${{ secrets.WECHAT_WEBX_PASSPHRASE }}
+        WECHAT_WEBHOOK: ${{ secrets.WEHOOK }}
       run: |
         python main.py
-
