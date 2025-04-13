@@ -8,7 +8,7 @@ WEBHOOK = os.environ.get("WECHAT_WEBHOOK")
 
 def get_equity():
     # 模拟账户权益，测试推送用
-    equity = 94.5  # ❗你可以改成 100 或 111 看不同触发效果
+    equity = 111  # ❗你可以改成 100 或 111 看不同触发效果
     return equity
 
 def send_wechat_msg(content):
