@@ -16,16 +16,13 @@ WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()
 INIT_EQUITY_FILE = "init_equity.txt"
 LAST_RESET_FILE = "last_reset.txt"
 
-
 def get_timestamp():
     return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
-
 
 def generate_signature(timestamp, method, request_path, body, secret_key):
     message = f"{timestamp}{method}{request_path}{body}"
     mac = hmac.new(secret_key.encode('utf-8'), msg=message.encode('utf-8'), digestmod=hashlib.sha256)
     return base64.b64encode(mac.digest()).decode()
-
 
 def get_equity():
     method = 'GET'
@@ -56,7 +53,6 @@ def get_equity():
         print("请求失败:", response.status_code, response.text)
         return None
 
-
 def send_wechat_msg(content):
     try:
         response = requests.post(WEBHOOK, json={"msgtype": "text", "text": {"content": content}})
@@ -64,18 +60,15 @@ def send_wechat_msg(content):
     except Exception as e:
         print("推送失败:", e)
 
-
 def read_file(filepath):
     if os.path.exists(filepath):
         with open(filepath, "r") as f:
             return f.read().strip()
     return None
 
-
 def write_file(filepath, content):
     with open(filepath, "w") as f:
         f.write(str(content))
-
 
 def main():
     now = datetime.now()
@@ -87,6 +80,9 @@ def main():
     if equity is None:
         send_wechat_msg("⚠️ 未能获取账户权益")
         return
+
+    # ✅ 测试推送 - 可确认脚本执行正常
+    send_wechat_msg(f"✅ 脚本执行成功，当前权益为：{equity}")
 
     # 每天0点重置初始本金
     last_reset_day = read_file(LAST_RESET_FILE)
@@ -116,7 +112,6 @@ def main():
         send_wechat_msg("⚠️ 注意：日内回撤 4%-5%，请控制风险！")
     elif pnl_rate >= 10:
         send_wechat_msg("🎉 恭喜：盈利超过 10%，请保持冷静，继续稳扎稳打！")
-
 
 if __name__ == "__main__":
     main()
