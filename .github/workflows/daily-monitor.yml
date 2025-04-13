@@ -2,8 +2,8 @@ name: OKX Equity Monitor
 
 on:
   schedule:
-    - cron: "*/15 * * * *"  # 每15分钟运行一次（UTC时间）
-  workflow_dispatch:        # 允许手动触发
+    - cron: "*/15 * * * *"  # 每15分钟运行一次（UTC时间）→ 北京时间：每小时的 0、15、30、45 分
+  workflow_dispatch:        # 支持手动触发测试
 
 jobs:
   monitor:
@@ -30,3 +30,11 @@ jobs:
           WECHAT_WEBHOOK: ${{ secrets.WECHAT_WEBHOOK }}
         run: |
           python main.py
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.WECHAT_WEBHOOK }} \
+          -H 'Content-Type: application/json' \
+          -d '{"msgtype":"text","text":{"content":"❌ GitHub Actions 运行失败，请及时检查！"}}'
+
