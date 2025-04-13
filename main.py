@@ -1,83 +1,63 @@
 import os
 import requests
 import time
-import hmac
-import hashlib
-import base64
-import datetime
 
-# 获取 API 和 Webhook 配置
-API_KEY = os.environ.get("OKX_API_KEY", "").strip()  # 去除可能的换行符
-SECRET_KEY = os.environ.get("OKX_SECRET_KEY", "").strip()  # 去除可能的换行符
-PASSPHRASE = os.environ.get("OKX_PASSPHRASE", "").strip()  # 去除可能的换行符
-WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()  # 去除可能的换行符
+API_KEY = os.environ.get("OKX_API_KEY", "").strip()
+SECRET_KEY = os.environ.get("OKX_SECRET_KEY", "").strip()
+PASSPHRASE = os.environ.get("OKX_PASSPHRASE", "").strip()
+WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()
 
-
-BASE_URL = "https://www.okx.com"
-
-# 构造 OKX 签名
-def generate_okx_headers(method, path, body=""):
-    timestamp = datetime.datetime.utcnow().isoformat("T", "milliseconds") + "Z"
-    pre_hash = f"{timestamp}{method}{path}{body}"
-    signature = base64.b64encode(
-        hmac.new(SECRET_KEY.encode(), pre_hash.encode(), hashlib.sha256).digest()
-    ).decode()
-
-    return {
+def get_equity():
+    url = "https://www.okx.com/api/v5/account/balance"  # 实际的OKX API URL
+    headers = {
         "OK-ACCESS-KEY": API_KEY,
-        "OK-ACCESS-SIGN": signature,
-        "OK-ACCESS-TIMESTAMP": timestamp,
+        "OK-ACCESS-SIGN": SECRET_KEY,  # 如果需要签名，请按照API文档进行签名
         "OK-ACCESS-PASSPHRASE": PASSPHRASE,
         "Content-Type": "application/json"
     }
 
-# 获取账户权益（U本位合约账户）
-def get_equity():
-    method = "GET"
-    path = "/api/v5/account/account-position-risk"
-    url = BASE_URL + path
-
-    headers = generate_okx_headers(method, path)
-    response = requests.get(url, headers=headers)
-
-    if response.status_code == 200:
+    # 发起请求并检查响应
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # 如果请求失败，会抛出异常
         data = response.json()
-        if data["code"] == "0":
-            equity = float(data["data"][0]["totalEq"])
+        print("响应数据:", data)  # 打印返回的数据，查看其结构
+        
+        # 检查 'data' 键并提取余额
+        if "data" in data and len(data["data"]) > 0:
+            # 请根据返回数据的实际结构修改 'totalEq' 为正确的键名
+            equity = float(data["data"][0].get("totalEq", 0))  # 如果找不到 totalEq，则默认返回 0
             return equity
         else:
-            print("❌ 获取权益数据失败:", data["msg"])
-    else:
-        print("❌ 请求失败:", response.text)
+            print("未能获取数据：'data' 键不存在或为空")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"请求失败：{e}")
+        return None
 
-    return None  # 获取失败返回 None
-
-# 发送微信机器人消息
 def send_wechat_msg(content):
-    if WEBHOOK:
-        try:
-            res = requests.post(WEBHOOK, json={"msgtype": "text", "text": {"content": content}})
-            if res.status_code != 200:
-                print("❌ 发送失败:", res.text)
-        except Exception as e:
-            print("❌ 发送微信消息时出错:", str(e))
-    else:
-        print("❌ 未设置 WEBHOOK 环境变量")
+    try:
+        response = requests.post(WEBHOOK, json={"msgtype": "text", "text": {"content": content}})
+        response.raise_for_status()  # 如果请求失败，会抛出异常
+    except requests.exceptions.RequestException as e:
+        print(f"发送微信消息失败：{e}")
 
-# 主函数逻辑
 def main():
+    # 模拟每日检测逻辑
     equity = get_equity()
     if equity is None:
-        send_wechat_msg("⚠️ 无法获取账户权益，请检查API设置")
+        print("未能获取账户权益")
         return
-
-    print(f"📊 当前账户权益: {equity}")
+    
+    print(f"当前账户权益：{equity}")
+    
+    # 示例逻辑
     if equity < 95:
-        send_wechat_msg(f"📉 当前权益：{equity} USDT\n警告：日内回撤超过 5%，停止交易！")
+        send_wechat_msg("警告：日内回撤超过 5%，停止交易！")
     elif equity < 96:
-        send_wechat_msg(f"⚠️ 当前权益：{equity} USDT\n注意：日内回撤 4%-5%，小心风险！")
+        send_wechat_msg("注意：日内回撤 4%-5%，小心风险！")
     elif equity > 110:
-        send_wechat_msg(f"🚀 当前权益：{equity} USDT\n提醒：盈利超过 10%，保持冷静！")
+        send_wechat_msg("提醒：盈利超过 10%，保持冷静！")
 
 if __name__ == "__main__":
     main()
