@@ -12,8 +12,9 @@ SECRET_KEY = os.environ.get("OKX_SECRET_KEY", "").strip()
 PASSPHRASE = os.environ.get("OKX_PASSPHRASE", "").strip()
 WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()
 
-# 记录初始本金（首次运行时间为准）
+# 记录初始本金
 INIT_EQUITY_FILE = "init_equity.txt"
+LAST_UPDATE_FILE = "last_update.txt"
 
 def get_timestamp():
     return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
@@ -69,32 +70,48 @@ def write_init_equity(equity):
     with open(INIT_EQUITY_FILE, "w") as f:
         f.write(str(equity))
 
+def read_last_update_day():
+    if os.path.exists(LAST_UPDATE_FILE):
+        with open(LAST_UPDATE_FILE, "r") as f:
+            return f.read().strip()
+    return None
+
+def write_last_update_day(day_str):
+    with open(LAST_UPDATE_FILE, "w") as f:
+        f.write(day_str)
+
 def main():
+    now = datetime.now()
+    current_day = now.strftime("%Y-%m-%d")
+    hour = now.hour
+
     equity = get_equity()
     if equity is None:
         send_wechat_msg("⚠️ 未能获取账户权益")
         return
 
-    # 初始化初始本金
-    init_equity = read_init_equity()
-    if init_equity is None:
+    last_update_day = read_last_update_day()
+    if last_update_day != current_day:
         write_init_equity(equity)
-        init_equity = equity
+        write_last_update_day(current_day)
         send_wechat_msg(f"📊 今日交易开始，初始本金为：{equity:.2f} USDT")
         return
 
-    # 计算今日收益率
+    init_equity = read_init_equity()
+    if init_equity is None:
+        init_equity = equity
+        write_init_equity(equity)
+        send_wechat_msg(f"📊 系统首次启动，记录初始本金：{equity:.2f} USDT")
+        return
+
     pnl_rate = (equity - init_equity) / init_equity * 100
 
-    # 定时提醒逻辑（根据时间区分）
-    hour = datetime.now().hour
-    if hour == 6:
-        send_wechat_msg("🌞 新的一天开始，好好交易，坚持不懈，加油！")
-        write_init_equity(equity)
-    elif hour == 0:
+    if hour == 0:
         send_wechat_msg(f"🌙 今日交易结束，请好好休息复盘。\n当前本金：{equity:.2f} USDT\n今日盈亏率：{pnl_rate:.2f}%")
 
-    # 风控提醒
+    if hour == 6:
+        send_wechat_msg("🌞 新的一天开始，好好交易，坚持不懈，加油！")
+
     if pnl_rate <= -5:
         send_wechat_msg("🚨 警告：日内回撤超过 5%，建议停止交易！")
     elif pnl_rate <= -4:
