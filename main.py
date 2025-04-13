@@ -7,10 +7,11 @@ import base64
 import datetime
 
 # 获取 API 和 Webhook 配置
-API_KEY = os.environ.get("OKX_API_KEY")
-SECRET_KEY = os.environ.get("OKX_SECRET_KEY")
-PASSPHRASE = os.environ.get("OKX_PASSPHRASE")
-WEBHOOK = os.environ.get("WECHAT_WEBHOOK")
+API_KEY = os.environ.get("OKX_API_KEY", "").strip()  # 去除可能的换行符
+SECRET_KEY = os.environ.get("OKX_SECRET_KEY", "").strip()  # 去除可能的换行符
+PASSPHRASE = os.environ.get("OKX_PASSPHRASE", "").strip()  # 去除可能的换行符
+WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()  # 去除可能的换行符
+
 
 BASE_URL = "https://www.okx.com"
 
