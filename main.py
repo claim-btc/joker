@@ -1,5 +1,4 @@
 import os
-import time
 import hmac
 import base64
 import hashlib
@@ -12,7 +11,7 @@ SECRET_KEY = os.environ.get("OKX_SECRET_KEY", "").strip()
 PASSPHRASE = os.environ.get("OKX_PASSPHRASE", "").strip()
 WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()
 
-# 记录初始本金
+# 本金和状态文件
 INIT_EQUITY_FILE = "init_equity.txt"
 LAST_UPDATE_FILE = "last_update.txt"
 
@@ -91,10 +90,11 @@ def main():
         return
 
     last_update_day = read_last_update_day()
-    if last_update_day != current_day:
+    if hour == 0 and last_update_day != current_day:
+        # 每天 0 点更新初始本金
         write_init_equity(equity)
         write_last_update_day(current_day)
-        send_wechat_msg(f"📊 今日交易开始，初始本金为：{equity:.2f} USDT")
+        send_wechat_msg(f"🌙 今日交易结束，请好好休息复盘。\n当前本金：{equity:.2f} USDT\n已记录为明日初始本金 ✅")
         return
 
     init_equity = read_init_equity()
@@ -104,20 +104,20 @@ def main():
         send_wechat_msg(f"📊 系统首次启动，记录初始本金：{equity:.2f} USDT")
         return
 
+    # 计算盈亏
     pnl_rate = (equity - init_equity) / init_equity * 100
 
-    if hour == 0:
-        send_wechat_msg(f"🌙 今日交易结束，请好好休息复盘。\n当前本金：{equity:.2f} USDT\n今日盈亏率：{pnl_rate:.2f}%")
-
+    # 早上 6 点推送激励消息
     if hour == 6:
         send_wechat_msg("🌞 新的一天开始，好好交易，坚持不懈，加油！")
 
+    # 风控提醒
     if pnl_rate <= -5:
-        send_wechat_msg("🚨 警告：日内回撤超过 5%，建议停止交易！")
+        send_wechat_msg(f"🚨 警告：日内回撤超过 5%（{pnl_rate:.2f}%），建议停止交易！")
     elif pnl_rate <= -4:
-        send_wechat_msg("⚠️ 注意：日内回撤 4%-5%，请控制风险！")
+        send_wechat_msg(f"⚠️ 注意：日内回撤已达 {pnl_rate:.2f}% ，请控制风险！")
     elif pnl_rate >= 10:
-        send_wechat_msg("🎉 恭喜：盈利超过 10%，请保持冷静，继续稳扎稳打！")
+        send_wechat_msg(f"🎉 恭喜：盈利已达 {pnl_rate:.2f}% ，请保持冷静，继续稳扎稳打！")
 
 if __name__ == "__main__":
     main()
