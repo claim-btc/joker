@@ -16,27 +16,27 @@ WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()
 # 文件路径
 INIT_EQUITY_FILE = "init_equity.txt"
 LAST_RESET_FILE = "last_reset.txt"
+MOTIVATION_FLAG_FILE = "sent_morning_flag.txt"
 
-# 神的话语列表
-bible_verses = [
-    "耶和华是我的牧者，我必不致缺乏。 — 诗篇 23:1",
-    "你们要靠主常常喜乐，我再说你们要喜乐。 — 腓立比书 4:4",
-    "我靠着那加给我力量的，凡事都能做。 — 腓立比书 4:13",
-    "耶和华必为你争战，你们只管静默，不要作声。 — 出埃及记 14:14",
-    "神是我们的避难所和力量，是我们随时的帮助。 — 诗篇 46:1",
-    "我知道我所信的是谁，也深信他能保守我所交付的，直到那日。 — 提摩太后书 1:12",
-    "凡劳苦担重担的人，可以到我这里来，我就使你们得安息。 — 马太福音 11:28"
+# 随机圣经经文列表
+SCRIPTURES = [
+    "耶和华是我的牧者，我必不致缺乏。— 诗篇 23:1",
+    "凡事都能加给我力量的，是那加给我力量的基督。— 腓立比书 4:13",
+    "你要专心仰赖耶和华，不可倚靠自己的聪明。— 箴言 3:5",
+    "在指望中要喜乐，在患难中要忍耐，祷告要恒切。— 罗马书 12:12",
+    "神赐给我们不是胆怯的心，乃是刚强、仁爱、谨守的心。— 提摩太后书 1:7"
 ]
+
+def get_random_scripture():
+    return random.choice(SCRIPTURES)
 
 def get_timestamp():
     return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
-
 
 def generate_signature(timestamp, method, request_path, body, secret_key):
     message = f"{timestamp}{method}{request_path}{body}"
     mac = hmac.new(secret_key.encode('utf-8'), msg=message.encode('utf-8'), digestmod=hashlib.sha256)
     return base64.b64encode(mac.digest()).decode()
-
 
 def get_equity():
     method = 'GET'
@@ -67,7 +67,6 @@ def get_equity():
         print("请求失败:", response.status_code, response.text)
         return None
 
-
 def send_wechat_msg(content):
     try:
         response = requests.post(WEBHOOK, json={"msgtype": "text", "text": {"content": content}})
@@ -75,27 +74,18 @@ def send_wechat_msg(content):
     except Exception as e:
         print("推送失败:", e)
 
-
 def read_file(filepath):
     if os.path.exists(filepath):
         with open(filepath, "r") as f:
             return f.read().strip()
     return None
 
-
 def write_file(filepath, content):
     with open(filepath, "w") as f:
         f.write(str(content))
 
-
-def send_random_bible_verse():
-    verse = random.choice(bible_verses)
-    send_wechat_msg(f"🌞 新的一天开始，好好交易，坚持不懈，加油！\n今天的神的话语是：\n{verse}")
-
-
 def main():
     now = datetime.now()
-    current_time = now.strftime("%H:%M")
     today = now.strftime("%Y-%m-%d")
     hour = now.hour
 
@@ -106,15 +96,18 @@ def main():
 
     # 每天0点重置初始本金
     last_reset_day = read_file(LAST_RESET_FILE)
-    if last_reset_day != today and hour == 0:
+    if hour == 0 and last_reset_day != today:
         write_file(INIT_EQUITY_FILE, equity)
         write_file(LAST_RESET_FILE, today)
         send_wechat_msg(f"📊 今日交易开始，初始本金为：{equity:.2f} USDT")
         return
 
-    # 每天早上6点激励消息
-    if hour == 6 and current_time.startswith("06:00"):
-        send_random_bible_verse()
+    # 每天早上6点发送激励消息和神的话语
+    sent_motivation = read_file(MOTIVATION_FLAG_FILE)
+    if hour == 6 and sent_motivation != today:
+        scripture = get_random_scripture()
+        send_wechat_msg(f"🌞 新的一天开始：\n{scripture}\n加油，神与你同在！")
+        write_file(MOTIVATION_FLAG_FILE, today)
         return
 
     # 读取初始本金
@@ -127,12 +120,11 @@ def main():
 
     # 风控提醒
     if pnl_rate <= -5:
-        send_wechat_msg("🚨 警告：猴哥你的日内回撤超过 5%，钟向阳命令你停止交易！")
+        send_wechat_msg("🚨 警告：日内回撤超过 5%，建议停止交易！")
     elif pnl_rate <= -4:
         send_wechat_msg("⚠️ 注意：日内回撤 4%-5%，请控制风险！")
     elif pnl_rate >= 10:
-        send_wechat_msg("🎉 恭喜：猴哥盈利超过 10%，请保持冷静，继续稳扎稳打！")
-
+        send_wechat_msg("🎉 恭喜：盈利超过 10%，请保持冷静，继续稳扎稳打！")
 
 if __name__ == "__main__":
     main()
