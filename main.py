@@ -4,8 +4,8 @@ import hmac
 import base64
 import hashlib
 import requests
-from datetime import datetime, timezone
 import random
+from datetime import datetime, timedelta
 
 # 从 GitHub Secrets 获取环境变量
 API_KEY = os.environ.get("OKX_API_KEY", "").strip()
@@ -16,22 +16,21 @@ WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()
 # 文件路径
 INIT_EQUITY_FILE = "init_equity.txt"
 LAST_RESET_FILE = "last_reset.txt"
-MOTIVATION_FLAG_FILE = "sent_morning_flag.txt"
 
-# 随机圣经经文列表
+# 神的话语列表（可自行添加）
 SCRIPTURES = [
-    "耶和华是我的牧者，我必不致缺乏。— 诗篇 23:1",
-    "凡事都能加给我力量的，是那加给我力量的基督。— 腓立比书 4:13",
-    "你要专心仰赖耶和华，不可倚靠自己的聪明。— 箴言 3:5",
-    "在指望中要喜乐，在患难中要忍耐，祷告要恒切。— 罗马书 12:12",
-    "神赐给我们不是胆怯的心，乃是刚强、仁爱、谨守的心。— 提摩太后书 1:7"
+    "凡事都有定期，天下万务都有定时。——传道书 3:1",
+    "你当刚强壮胆，不要惧怕，也不要惊惶，因为你无论往哪里去，耶和华你的神必与你同在。——约书亚记 1:9",
+    "凡劳苦担重担的人可以到我这里来，我就使你们得安息。——马太福音 11:28",
+    "我留下平安给你们，我将我的平安赐给你们。——约翰福音 14:27",
+    "神是我们的避难所，是我们的力量，是我们在患难中随时的帮助。——诗篇 46:1"
 ]
 
-def get_random_scripture():
-    return random.choice(SCRIPTURES)
+def get_beijing_time():
+    return datetime.utcnow() + timedelta(hours=8)
 
 def get_timestamp():
-    return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+    return datetime.utcnow().isoformat(timespec='milliseconds').replace('+00:00', 'Z')
 
 def generate_signature(timestamp, method, request_path, body, secret_key):
     message = f"{timestamp}{method}{request_path}{body}"
@@ -85,35 +84,35 @@ def write_file(filepath, content):
         f.write(str(content))
 
 def main():
-    now = datetime.now()
+    now = get_beijing_time()
+    current_time = now.strftime("%H:%M")
     today = now.strftime("%Y-%m-%d")
     hour = now.hour
+    minute = now.minute
 
     equity = get_equity()
     if equity is None:
         send_wechat_msg("⚠️ 未能获取账户权益")
         return
 
-    # 每天0点重置初始本金
+    # 每天 0 点重置初始本金
     last_reset_day = read_file(LAST_RESET_FILE)
-    if hour == 0 and last_reset_day != today:
+    if last_reset_day != today and hour == 0:
         write_file(INIT_EQUITY_FILE, equity)
         write_file(LAST_RESET_FILE, today)
         send_wechat_msg(f"📊 今日交易开始，初始本金为：{equity:.2f} USDT")
         return
 
-    # 每天早上6点发送激励消息和神的话语
-    sent_motivation = read_file(MOTIVATION_FLAG_FILE)
-    if hour == 6 and sent_motivation != today:
-        scripture = get_random_scripture()
-        send_wechat_msg(f"🌞 新的一天开始：\n{scripture}\n加油，神与你同在！")
-        write_file(MOTIVATION_FLAG_FILE, today)
+    # 每天早上 6 点推送神的话语和激励
+    if hour == 6 and minute == 0:
+        verse = random.choice(SCRIPTURES)
+        send_wechat_msg(f"🌞 新的一天开始，好好交易，坚持不懈，加油！\n📖 神的话语：{verse}")
         return
 
     # 读取初始本金
     init_equity = read_file(INIT_EQUITY_FILE)
     if init_equity is None:
-        return  # 等到 0 点再设置初始本金
+        return  # 尚未设置初始本金，等待 0 点处理
 
     init_equity = float(init_equity)
     pnl_rate = (equity - init_equity) / init_equity * 100
