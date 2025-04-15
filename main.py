@@ -30,7 +30,6 @@ def get_beijing_time():
     return datetime.utcnow() + timedelta(hours=8)
 
 def get_timestamp():
-    # 严格的 ISO 8601 格式 + Z
     return datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'
 
 def generate_signature(timestamp, method, request_path, body, secret_key):
@@ -70,6 +69,46 @@ def get_equity():
         print("请求失败:", response.status_code, response.text)
         return None
 
+def get_today_withdrawal_auto():
+    method = 'GET'
+    request_path = '/api/v5/asset/bills?ccy=USDT&type=withdraw'
+    url = 'https://www.okx.com' + request_path
+    body = ''
+    timestamp = get_timestamp()
+    sign = generate_signature(timestamp, method, request_path, body, SECRET_KEY)
+
+    headers = {
+        'OK-ACCESS-KEY': API_KEY,
+        'OK-ACCESS-SIGN': sign,
+        'OK-ACCESS-TIMESTAMP': timestamp,
+        'OK-ACCESS-PASSPHRASE': PASSPHRASE,
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            print("提现记录获取失败", response.status_code, response.text)
+            return 0.0
+
+        data = response.json()
+        today = get_beijing_time().strftime("%Y-%m-%d")
+        total_withdrawal = 0.0
+
+        for record in data.get("data", []):
+            ts = int(record["ts"]) / 1000
+            date_str = datetime.utcfromtimestamp(ts + 8 * 3600).strftime("%Y-%m-%d")
+            if date_str == today:
+                amt = float(record.get("amt", "0"))
+                total_withdrawal += amt
+
+        print(f"✅ 今天的自动识别提现总额: {total_withdrawal} USDT")
+        return total_withdrawal
+
+    except Exception as e:
+        print("自动获取提现金额失败:", e)
+        return 0.0
+
 def send_wechat_msg(content):
     try:
         print("发送消息内容:", content)
@@ -100,7 +139,6 @@ def main():
         send_wechat_msg("⚠️ 未能获取账户权益，请检查 API 设置或账户余额是否为 USDT")
         return
 
-    # 每天 0 点重置初始本金
     last_reset_day = read_file(LAST_RESET_FILE)
     if last_reset_day != today and hour == 0:
         write_file(INIT_EQUITY_FILE, equity)
@@ -108,21 +146,24 @@ def main():
         send_wechat_msg(f"📊 今日交易开始，初始本金为：{equity:.2f} USDT")
         return
 
-    # 每天早上 6 点推送激励和经文
     if hour == 6 and minute == 0:
         verse = random.choice(SCRIPTURES)
         send_wechat_msg(f"🌞 新的一天开始，好好交易，坚持不懈，加油！\n📖 神的话语：{verse}")
         return
 
-    # 获取初始本金
     init_equity = read_file(INIT_EQUITY_FILE)
     if init_equity is None:
-        return  # 尚未设置初始本金，等待 0 点处理
+        return
 
     init_equity = float(init_equity)
-    pnl_rate = (equity - init_equity) / init_equity * 100
+    withdrawals_today = get_today_withdrawal_auto()
+    adjusted_init_equity = init_equity - withdrawals_today
+    if adjusted_init_equity <= 0:
+        send_wechat_msg("⚠️ 回撤计算失败：调整后的初始本金 ≤ 0，可能是连续大额提现，请检查账户！")
+        return
 
-    # 风控提醒
+    pnl_rate = (equity - adjusted_init_equity) / adjusted_init_equity * 100
+
     if pnl_rate <= -5:
         send_wechat_msg("🚨 警告：日内回撤超过 5%，建议停止交易！")
     elif pnl_rate <= -4:
@@ -132,5 +173,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
- 
