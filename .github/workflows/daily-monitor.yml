@@ -31,10 +31,13 @@ jobs:
         run: |
           python main.py
 
-      - name: Notify on failure
-        if: failure()
+  notify-on-failure:
+    needs: monitor
+    if: failure()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Send failure notification
         run: |
-          curl -X POST ${{ secrets.WECHAT_WEBHOOK }} \
-          -H 'Content-Type: application/json' \
-          -d '{"msgtype":"text","text":{"content":"❌ GitHub Actions 运行失败，请及时检查！"}}'
-
+          curl -X POST "${{ secrets.WECHAT_WEBHOOK }}" \
+            -H 'Content-Type: application/json' \
+            -d '{"msgtype":"text","text":{"content":"❌ GitHub Actions 运行失败，请及时检查！"}}'
