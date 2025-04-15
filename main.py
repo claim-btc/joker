@@ -7,17 +7,17 @@ import requests
 import random
 from datetime import datetime, timedelta
 
-# 从 GitHub Secrets 获取环境变量
+# 获取 GitHub Secrets 中的环境变量
 API_KEY = os.environ.get("OKX_API_KEY", "").strip()
 SECRET_KEY = os.environ.get("OKX_SECRET_KEY", "").strip()
 PASSPHRASE = os.environ.get("OKX_PASSPHRASE", "").strip()
 WEBHOOK = os.environ.get("WECHAT_WEBHOOK", "").strip()
 
-# 文件路径
+# 本地文件路径
 INIT_EQUITY_FILE = "init_equity.txt"
 LAST_RESET_FILE = "last_reset.txt"
 
-# 神的话语列表（可自行添加）
+# 神的话语
 SCRIPTURES = [
     "凡事都有定期，天下万务都有定时。——传道书 3:1",
     "你当刚强壮胆，不要惧怕，也不要惊惶，因为你无论往哪里去，耶和华你的神必与你同在。——约书亚记 1:9",
@@ -30,10 +30,11 @@ def get_beijing_time():
     return datetime.utcnow() + timedelta(hours=8)
 
 def get_timestamp():
-    return datetime.utcnow().isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+    # 严格的 ISO 8601 格式 + Z
+    return datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'
 
 def generate_signature(timestamp, method, request_path, body, secret_key):
-    message = f"{timestamp}{method}{request_path}{body}"
+    message = f"{timestamp}{method}{request_path}{body or ''}"
     mac = hmac.new(secret_key.encode('utf-8'), msg=message.encode('utf-8'), digestmod=hashlib.sha256)
     return base64.b64encode(mac.digest()).decode()
 
@@ -54,12 +55,12 @@ def get_equity():
     }
 
     response = requests.get(url, headers=headers)
-    print("接口响应状态码:", response.status_code)
-    print("接口响应内容:", response.text)
+    print(f"接口响应状态码: {response.status_code}")
+    print(f"接口响应内容: {response.text}")
 
     if response.status_code == 200:
-        data = response.json()
         try:
+            data = response.json()
             equity = float(data["data"][0]["details"][0]["eq"])
             return equity
         except Exception as e:
@@ -71,6 +72,7 @@ def get_equity():
 
 def send_wechat_msg(content):
     try:
+        print("发送消息内容:", content)
         response = requests.post(WEBHOOK, json={"msgtype": "text", "text": {"content": content}})
         response.raise_for_status()
     except Exception as e:
@@ -95,7 +97,7 @@ def main():
 
     equity = get_equity()
     if equity is None:
-        send_wechat_msg("⚠️ 未能获取账户权益")
+        send_wechat_msg("⚠️ 未能获取账户权益，请检查 API 设置或账户余额是否为 USDT")
         return
 
     # 每天 0 点重置初始本金
@@ -106,13 +108,13 @@ def main():
         send_wechat_msg(f"📊 今日交易开始，初始本金为：{equity:.2f} USDT")
         return
 
-    # 每天早上 6 点推送神的话语和激励
+    # 每天早上 6 点推送激励和经文
     if hour == 6 and minute == 0:
         verse = random.choice(SCRIPTURES)
         send_wechat_msg(f"🌞 新的一天开始，好好交易，坚持不懈，加油！\n📖 神的话语：{verse}")
         return
 
-    # 读取初始本金
+    # 获取初始本金
     init_equity = read_file(INIT_EQUITY_FILE)
     if init_equity is None:
         return  # 尚未设置初始本金，等待 0 点处理
@@ -130,3 +132,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+ 
