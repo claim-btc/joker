@@ -54,6 +54,9 @@ def get_equity():
     }
 
     response = requests.get(url, headers=headers)
+    print("接口响应状态码:", response.status_code)
+    print("接口响应内容:", response.text)
+
     if response.status_code == 200:
         data = response.json()
         try:
