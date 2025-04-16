@@ -139,14 +139,16 @@ def main():
         send_wechat_msg("⚠️ 未能获取账户权益，请检查 API 设置或账户余额是否为 USDT")
         return
 
+    # 设置初始本金（00:00 ~ 00:04）
     last_reset_day = read_file(LAST_RESET_FILE)
-    if last_reset_day != today and hour == 0:
+    if last_reset_day != today and hour == 0 and minute < 5:
         write_file(INIT_EQUITY_FILE, equity)
         write_file(LAST_RESET_FILE, today)
         send_wechat_msg(f"📊 今日交易开始，初始本金为：{equity:.2f} USDT")
         return
 
-    if hour == 6 and minute == 0:
+    # 早上激励语（06:00 ~ 06:04）
+    if hour == 6 and minute < 5:
         verse = random.choice(SCRIPTURES)
         send_wechat_msg(f"🌞 新的一天开始，好好交易，坚持不懈，加油！\n📖 神的话语：{verse}")
         return
